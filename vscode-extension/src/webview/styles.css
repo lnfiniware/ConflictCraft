@@ -1,0 +1,353 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Ubuntu:wght@400;500;700&display=swap");
+
+:root {
+  --white: #ffffff;
+  --ink: #121212;
+  --ink-soft: #252525;
+  --red: #c1121f;
+  --red-dark: #98101a;
+  --border: #131313;
+  --font-title: "Playfair Display", Georgia, serif;
+  --font-body: "Ubuntu", "SF Pro Text", "San Francisco", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-ui: "SF Pro Text", "San Francisco", "Ubuntu", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "SF Mono", "Ubuntu Mono", Consolas, "Liberation Mono", monospace;
+  --shell-max: 1560px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: #f5f5f5;
+  font-family: var(--font-body);
+}
+
+.app-shell {
+  max-width: var(--shell-max);
+  margin: 12px auto;
+  padding: 12px;
+  border: 2px solid var(--border);
+  background: var(--white);
+}
+
+.topbar,
+.summary,
+.pane,
+.rules,
+.graph,
+.explain,
+.brand-footer,
+textarea,
+button,
+.suggestion {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  background: var(--white);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+}
+
+.brand-mark rect {
+  fill: var(--white);
+  stroke: var(--red);
+  stroke-width: 4;
+}
+
+.brand-mark path {
+  fill: var(--ink);
+}
+
+.brand-mark circle {
+  fill: var(--red);
+}
+
+.brand h1 {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+}
+
+.brand p {
+  margin: 4px 0 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-soft);
+  letter-spacing: 0.05em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button {
+  padding: 8px 13px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+button:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: #fff7f8;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#saveBtn {
+  color: var(--white);
+  background: var(--red);
+  border-color: var(--red);
+}
+
+#saveBtn:hover {
+  color: var(--white);
+  background: var(--red-dark);
+  border-color: var(--red-dark);
+}
+
+.summary,
+.rules,
+.graph,
+.explain,
+.brand-footer {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
+.summary {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 40px;
+}
+
+.pane-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pane {
+  padding: 10px;
+}
+
+.pane h2,
+.rules h2,
+.graph h2,
+.explain h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 9px;
+  font-family: var(--font-title);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.section-icon {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+}
+
+.section-icon path,
+.section-icon rect,
+.section-icon circle,
+.section-icon line {
+  stroke: var(--red);
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+textarea {
+  width: 100%;
+  min-height: 210px;
+  padding: 11px;
+  resize: vertical;
+  color: var(--ink);
+  background: var(--white);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+textarea[readonly] {
+  background: #fcfcfc;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: inset 0 0 0 1px rgba(193, 18, 31, 0.12);
+}
+
+#suggestionList,
+#explainContent {
+  display: grid;
+  gap: 8px;
+}
+
+.suggestion {
+  padding: 9px;
+}
+
+.suggestion.safe {
+  border-left: 7px solid var(--ink);
+}
+
+.suggestion.manual {
+  border-left: 7px solid var(--red);
+}
+
+.suggestion-title {
+  margin-bottom: 6px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.suggestion-notes {
+  margin-bottom: 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+#graphSummary {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.brand-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.footer-label {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+
+.infiniware-logo {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: "Ubuntu", sans-serif;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.logo-i {
+  color: var(--red);
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.logo-rest {
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 700;
+  margin-left: 0;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .brand h1 {
+    font-size: 40px;
+  }
+
+  .pane h2,
+  .rules h2,
+  .graph h2,
+  .explain h2 {
+    font-size: 26px;
+  }
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    margin: 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pane-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brand h1 {
+    font-size: 34px;
+  }
+
+  .pane h2,
+  .rules h2,
+  .graph h2,
+  .explain h2 {
+    font-size: 23px;
+  }
+
+  .section-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .logo-i {
+    font-size: 24px;
+  }
+
+  .logo-rest {
+    font-size: 24px;
+  }
+}

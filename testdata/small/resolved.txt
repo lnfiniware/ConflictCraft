@@ -1,0 +1,3 @@
+import { a } from "pkg";
+import { a, b } from "pkg";
+import { a, c } from "pkg";

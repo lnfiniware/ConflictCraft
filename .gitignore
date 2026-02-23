@@ -1,0 +1,15 @@
+# Build artifacts
+core/build/
+
+# Python
+python_engine/.pytest_cache/
+python_engine/**/__pycache__/
+*.pyc
+
+# VS Code extension
+vscode-extension/node_modules/
+vscode-extension/out/
+
+# Temporary outputs
+*.tmp
+*.log

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conflictcraft.dev/schemas/history.schema.json",
+  "title": "ActionHistory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "file", "actions"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "file": { "type": "string" },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/action" }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "timestamp",
+        "actor",
+        "hunk_id",
+        "before",
+        "after",
+        "rule_id",
+        "undo_group"
+      ],
+      "properties": {
+        "action_id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "actor": { "type": "string", "enum": ["user", "rule", "system"] },
+        "hunk_id": { "type": "string" },
+        "before": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "after": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rule_id": { "type": "string" },
+        "undo_group": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conflictcraft.dev/schemas/rule-result.schema.json",
+  "title": "RuleResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_version",
+    "file",
+    "suggestions",
+    "explanations",
+    "history_preview",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "protocol_version": { "type": "string" },
+    "file": { "type": "string" },
+    "suggestions": {
+      "type": "array",
+      "items": { "$ref": "suggestion.schema.json" }
+    },
+    "explanations": {
+      "type": "array",
+      "items": { "$ref": "explanation.schema.json" }
+    },
+    "history_preview": {
+      "type": "array",
+      "items": { "$ref": "history.schema.json#/$defs/action" }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolved_hunks", "manual_hunks"],
+      "properties": {
+        "resolved_hunks": { "type": "integer", "minimum": 0 },
+        "manual_hunks": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

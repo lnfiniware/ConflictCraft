@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "file": "auth.js",
+  "suggestions": [
+    {
+      "hunk_id": "hunk_1",
+      "rule_id": "import_block_merge",
+      "action": "combine",
+      "resolved_lines": [
+        "import a from 'a';",
+        "import b from 'b';",
+        "import c from 'c';"
+      ],
+      "confidence": 0.99,
+      "safe_to_apply": true,
+      "deterministic_hash": "2b6b84f6f33f20df",
+      "notes": "Merged and sorted unique imports"
+    }
+  ],
+  "explanations": [
+    {
+      "hunk_id": "hunk_1",
+      "why_conflict": "Both branches modified the import block around the same base region.",
+      "base_summary": "Base contained one import statement.",
+      "ours_summary": "Ours introduced import b.",
+      "theirs_summary": "Theirs introduced import c and retained import a.",
+      "why_suggestion_valid": "Imports are independent, deduplicated, and merged in stable order."
+    }
+  ],
+  "history_preview": [
+    {
+      "action_id": "act_1",
+      "timestamp": "2026-02-23T00:00:00Z",
+      "actor": "rule",
+      "hunk_id": "hunk_1",
+      "before": ["import a from 'a';"],
+      "after": ["import a from 'a';", "import b from 'b';", "import c from 'c';"],
+      "rule_id": "import_block_merge",
+      "undo_group": "grp_1"
+    }
+  ],
+  "summary": {
+    "resolved_hunks": 1,
+    "manual_hunks": 0
+  }
+}

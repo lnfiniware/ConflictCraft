@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conflictcraft.dev/schemas/rule-config.schema.json",
+  "title": "RuleConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "rules", "auto_apply"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "auto_apply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "min_confidence"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "min_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "enabled", "priority", "safe_to_apply"],
+        "properties": {
+          "id": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "priority": { "type": "integer", "minimum": 0 },
+          "safe_to_apply": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

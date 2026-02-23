@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "file": "auth.js",
+  "encoding": "utf-8",
+  "hunks": [
+    {
+      "id": "hunk_1",
+      "type": "conflict",
+      "base_range": { "start": 10, "end": 14 },
+      "ours_range": { "start": 10, "end": 16 },
+      "theirs_range": { "start": 10, "end": 15 },
+      "base_lines": ["import a from 'a';"],
+      "ours_lines": ["import a from 'a';", "import b from 'b';"],
+      "theirs_lines": ["import c from 'c';", "import a from 'a';"],
+      "is_conflict": true,
+      "metadata": {
+        "symbol": "imports"
+      }
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "node_id": "node_1",
+        "hunk_id": "hunk_1",
+        "category": "conflict",
+        "depends_on": []
+      }
+    ],
+    "edges": []
+  },
+  "analysis_required": true,
+  "meta": {
+    "engine_version": "0.1.0",
+    "generated_at": "2026-02-23T00:00:00Z"
+  }
+}

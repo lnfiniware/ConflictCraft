@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CORE_BIN="${CORE_BIN:-$ROOT_DIR/core/build/conflictcraft_core}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
+RULE_ENGINE="${RULE_ENGINE:-$ROOT_DIR/python_engine/conflictcraft_rules/main.py}"
+
+if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+  CORE_BIN="${CORE_BIN}.exe"
+fi
+
+usage() {
+  cat <<EOF
+ConflictCraft CLI
+
+Usage:
+  conflictcraft analyze <args>
+  conflictcraft resolve <file> [--write|--no-write] [--explain]
+EOF
+}
+
+if [[ $# -lt 1 ]]; then
+  usage
+  exit 1
+fi
+
+cmd="$1"
+shift
+
+case "$cmd" in
+  analyze)
+    "$CORE_BIN" analyze "$@"
+    ;;
+  resolve)
+    if [[ $# -lt 1 ]]; then
+      echo "resolve requires <file>"
+      exit 1
+    fi
+
+    target_file="$1"
+    shift
+
+    write_mode=1
+    explain_mode=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --no-write)
+          write_mode=0
+          ;;
+        --write)
+          write_mode=1
+          ;;
+        --explain)
+          explain_mode=1
+          ;;
+      esac
+      shift
+    done
+
+    tmp_dir="$(mktemp -d)"
+    analysis_json="$tmp_dir/analysis.json"
+    rules_json="$tmp_dir/rules.json"
+    resolved_txt="$tmp_dir/resolved.txt"
+
+    "$CORE_BIN" analyze --conflict-file "$target_file" --out "$analysis_json" --file "$(basename "$target_file")"
+
+    "$PYTHON_BIN" "$RULE_ENGINE" \
+      --analysis "$analysis_json" \
+      --out "$rules_json" \
+      --conflict-file "$target_file" \
+      --resolved-out "$resolved_txt"
+
+    if [[ $write_mode -eq 1 ]]; then
+      cp "$resolved_txt" "$target_file"
+    fi
+
+    if [[ $explain_mode -eq 1 ]]; then
+      cat "$rules_json"
+    fi
+
+    if grep -q '^<<<<<<<' "$resolved_txt"; then
+      echo "ConflictCraft: partial resolution completed; manual action required."
+      exit 2
+    fi
+
+    echo "ConflictCraft: resolution completed."
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac

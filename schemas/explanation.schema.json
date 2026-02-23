@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conflictcraft.dev/schemas/explanation.schema.json",
+  "title": "Explanation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hunk_id",
+    "why_conflict",
+    "base_summary",
+    "ours_summary",
+    "theirs_summary",
+    "why_suggestion_valid"
+  ],
+  "properties": {
+    "hunk_id": { "type": "string" },
+    "why_conflict": { "type": "string" },
+    "base_summary": { "type": "string" },
+    "ours_summary": { "type": "string" },
+    "theirs_summary": { "type": "string" },
+    "why_suggestion_valid": { "type": "string" }
+  }
+}

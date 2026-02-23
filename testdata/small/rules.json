@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "file": "sample_import_conflict.js",
+  "suggestions": [
+    {
+      "hunk_id": "hunk_1",
+      "rule_id": "import_block_merge",
+      "action": "combine",
+      "resolved_lines": [
+        "import { a } from \"pkg\";",
+        "import { a, b } from \"pkg\";",
+        "import { a, c } from \"pkg\";"
+      ],
+      "confidence": 0.99,
+      "safe_to_apply": true,
+      "deterministic_hash": "dbc7f3463eea489d",
+      "notes": "Merged import statements with stable ordering and de-duplication."
+    }
+  ],
+  "explanations": [
+    {
+      "hunk_id": "hunk_1",
+      "why_conflict": "Both branches touched overlapping base lines in this region.",
+      "base_summary": "Base lines: 1",
+      "ours_summary": "Ours lines: 1",
+      "theirs_summary": "Theirs lines: 1",
+      "why_suggestion_valid": "Merged import statements with stable ordering and de-duplication."
+    }
+  ],
+  "history_preview": [
+    {
+      "action_id": "act_1",
+      "timestamp": "2026-02-23T20:30:31Z",
+      "actor": "rule",
+      "hunk_id": "hunk_1",
+      "before": [
+        "import { a } from \"pkg\";"
+      ],
+      "after": [
+        "import { a } from \"pkg\";",
+        "import { a, b } from \"pkg\";",
+        "import { a, c } from \"pkg\";"
+      ],
+      "rule_id": "import_block_merge",
+      "undo_group": "grp_1"
+    }
+  ],
+  "summary": {
+    "resolved_hunks": 1,
+    "manual_hunks": 0
+  }
+}

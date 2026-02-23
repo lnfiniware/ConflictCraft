@@ -1,0 +1,73 @@
+{
+  "name": "conflictcraft-vscode",
+  "displayName": "ConflictCraft",
+  "description": "Visual and explainable Git conflict resolution",
+  "version": "0.1.0",
+  "publisher": "infiniware",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:conflictcraft.openEditor",
+    "onCommand:conflictcraft.resolveCurrentFile",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "conflictcraft.openEditor",
+        "title": "ConflictCraft: Open Editor"
+      },
+      {
+        "command": "conflictcraft.resolveCurrentFile",
+        "title": "ConflictCraft: Resolve Current File"
+      },
+      {
+        "command": "conflictcraft.toggleExplainMode",
+        "title": "ConflictCraft: Toggle Explain Mode"
+      },
+      {
+        "command": "conflictcraft.undoAction",
+        "title": "ConflictCraft: Undo Action"
+      },
+      {
+        "command": "conflictcraft.redoAction",
+        "title": "ConflictCraft: Redo Action"
+      }
+    ],
+    "configuration": {
+      "title": "ConflictCraft",
+      "properties": {
+        "conflictcraft.coreBinaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to conflictcraft_core binary. If empty, workspace default path is used."
+        },
+        "conflictcraft.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Python executable for running the rule engine."
+        },
+        "conflictcraft.ruleEnginePath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to python_engine/conflictcraft_rules/main.py"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "test": "node -e \"console.log('No extension tests yet')\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.7.2"
+  }
+}

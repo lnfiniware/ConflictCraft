@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conflictcraft.dev/schemas/hunk.schema.json",
+  "title": "Hunk",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "base_range",
+    "ours_range",
+    "theirs_range",
+    "base_lines",
+    "ours_lines",
+    "theirs_lines",
+    "is_conflict"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^hunk_[0-9]+$"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["context", "change", "conflict"]
+    },
+    "base_range": {
+      "$ref": "#/$defs/range"
+    },
+    "ours_range": {
+      "$ref": "#/$defs/range"
+    },
+    "theirs_range": {
+      "$ref": "#/$defs/range"
+    },
+    "base_lines": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "ours_lines": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "theirs_lines": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "is_conflict": {
+      "type": "boolean"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

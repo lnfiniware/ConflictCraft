@@ -1,0 +1,2 @@
+# ConflictCraft
+Deterministic Merge Workstation

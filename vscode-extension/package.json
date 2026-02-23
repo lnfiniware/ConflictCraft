@@ -4,6 +4,15 @@
   "description": "Visual and explainable Git conflict resolution",
   "version": "0.1.0",
   "publisher": "infiniware",
+  "icon": "assets/conflictcraft-logo.png",
+  "keywords": [
+    "git",
+    "merge",
+    "conflict",
+    "resolution",
+    "diff3",
+    "vscode"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -63,7 +72,11 @@
   "scripts": {
     "compile": "tsc -p .",
     "watch": "tsc -w -p .",
-    "test": "node -e \"console.log('No extension tests yet')\""
+    "test": "node -e \"console.log('No extension tests yet')\"",
+    "package": "npx @vscode/vsce package --allow-missing-repository",
+    "publish:patch": "npx @vscode/vsce publish patch --allow-missing-repository",
+    "publish:minor": "npx @vscode/vsce publish minor --allow-missing-repository",
+    "publish:major": "npx @vscode/vsce publish major --allow-missing-repository"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

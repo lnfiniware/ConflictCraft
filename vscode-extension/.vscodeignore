@@ -1,0 +1,9 @@
+.vscode/**
+src/**/*.ts
+!src/webview/main.js
+!src/webview/index.html
+!src/webview/styles.css
+**/*.map
+node_modules/**
+test/**
+assets/generate-logo.ps1

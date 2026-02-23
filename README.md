@@ -2,6 +2,9 @@
 
 ConflictCraft is a deterministic Git conflict visualizer and resolution engine.
 
+## Full Tutorial
+- `docs/ConflictCraft-Full-Tutorial.md`
+
 ## Stack
 - C++: core parser, diff3-style hunk analysis, graph generation
 - Python: deterministic smart rules and explanations

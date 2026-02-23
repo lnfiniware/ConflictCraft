@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="ConflictCraft logo">
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#ffffff" stroke="#c1121f" stroke-width="5"/>
+  <rect x="43" y="35" width="37" height="10" fill="#161a22"/>
+  <rect x="43" y="35" width="12" height="52" fill="#161a22"/>
+  <rect x="43" y="77" width="37" height="10" fill="#161a22"/>
+  <circle cx="84" cy="84" r="6" fill="#c1121f"/>
+</svg>
+

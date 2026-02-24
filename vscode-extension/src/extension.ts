@@ -1,3 +1,4 @@
+import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
@@ -16,6 +17,8 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 
   const backend = new BackendClient(workspaceFolder);
+  const output = vscode.window.createOutputChannel("ConflictCraft");
+  context.subscriptions.push(output);
   const prompted = new Set<string>();
 
   const maybePrompt = async (document: vscode.TextDocument): Promise<void> => {
@@ -93,6 +96,76 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("conflictcraft.redoAction", () => {
       panel?.webview.postMessage({ type: "redo" });
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("conflictcraft.runDoctor", async () => {
+      output.clear();
+      output.show(true);
+      output.appendLine("ConflictCraft: running doctor");
+      const exitCode = await runCliCommand(workspaceFolder, ["doctor"], output);
+      if (exitCode === 0) {
+        vscode.window.showInformationMessage("ConflictCraft doctor passed.");
+      } else {
+        vscode.window.showErrorMessage(`ConflictCraft doctor found issues (exit ${exitCode}). Check Output: ConflictCraft.`);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("conflictcraft.scanWorkspaceConflicts", async () => {
+      output.clear();
+      output.show(true);
+      output.appendLine("ConflictCraft: scanning workspace for conflict markers");
+      const exitCode = await runCliCommand(workspaceFolder, ["scan", workspaceFolder], output);
+      if (exitCode === 0) {
+        vscode.window.showInformationMessage("ConflictCraft scan completed.");
+      } else {
+        vscode.window.showErrorMessage(`ConflictCraft scan failed (exit ${exitCode}). Check Output: ConflictCraft.`);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("conflictcraft.resolveGitUnmerged", async () => {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: "Preview only (Recommended)", args: ["git-resolve", "--no-write", "--explain"] },
+          { label: "Apply safe resolutions", args: ["git-resolve", "--write", "--explain"] },
+        ],
+        {
+          title: "ConflictCraft: Resolve Git Unmerged Files",
+          placeHolder: "Choose how ConflictCraft should run",
+        },
+      );
+
+      if (!choice) {
+        return;
+      }
+
+      output.clear();
+      output.show(true);
+      output.appendLine(`ConflictCraft: running ${choice.args.join(" ")}`);
+
+      const exitCode = await runCliCommand(workspaceFolder, choice.args, output);
+      if (exitCode === 0) {
+        vscode.window.showInformationMessage("ConflictCraft git-resolve completed.");
+      } else if (exitCode === 2) {
+        vscode.window.showWarningMessage("ConflictCraft git-resolve completed with manual conflicts remaining.");
+      } else {
+        vscode.window.showErrorMessage(`ConflictCraft git-resolve failed (exit ${exitCode}). Check Output: ConflictCraft.`);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("conflictcraft.openFullTutorial", async () => {
+      const tutorialPath = path.join(workspaceFolder, "docs", "ConflictCraft-Full-Tutorial.md");
+      const fallbackReadme = path.join(workspaceFolder, "README.md");
+      const targetPath = fs.existsSync(tutorialPath) ? tutorialPath : fallbackReadme;
+      const document = await vscode.workspace.openTextDocument(targetPath);
+      await vscode.window.showTextDocument(document, { preview: false });
     }),
   );
 }
@@ -179,4 +252,47 @@ function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
   html = html.replace("{{scriptUri}}", scriptUri.toString());
   html = html.replace("{{styleUri}}", styleUri.toString());
   return html;
+}
+
+function getCliInvocation(workspaceRoot: string, args: string[]): { command: string; argv: string[] } {
+  if (process.platform === "win32") {
+    const script = path.join(workspaceRoot, "scripts", "conflictcraft.ps1");
+    return {
+      command: "powershell",
+      argv: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...args],
+    };
+  }
+
+  const script = path.join(workspaceRoot, "scripts", "conflictcraft");
+  return {
+    command: "bash",
+    argv: [script, ...args],
+  };
+}
+
+function runCliCommand(workspaceRoot: string, args: string[], output: vscode.OutputChannel): Promise<number> {
+  const invocation = getCliInvocation(workspaceRoot, args);
+  return new Promise((resolve) => {
+    const child = cp.spawn(invocation.command, invocation.argv, {
+      cwd: workspaceRoot,
+      shell: false,
+    });
+
+    child.stdout.on("data", (chunk) => {
+      output.append(chunk.toString());
+    });
+
+    child.stderr.on("data", (chunk) => {
+      output.append(chunk.toString());
+    });
+
+    child.on("error", (error) => {
+      output.appendLine(`\nConflictCraft extension error: ${error.message}`);
+      resolve(1);
+    });
+
+    child.on("close", (code) => {
+      resolve(code ?? 1);
+    });
+  });
 }

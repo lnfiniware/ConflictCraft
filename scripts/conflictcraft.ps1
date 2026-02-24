@@ -8,11 +8,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$CliVersion = "0.4.0"
+$CliVersion = "0.5.0"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $CoreBin = if ($env:CORE_BIN) { $env:CORE_BIN } else { Join-Path $Root "core\build\conflictcraft_core.exe" }
-$PythonBin = if ($env:PYTHON_BIN) { $env:PYTHON_BIN } else { "python" }
+$PythonBin = if ($env:PYTHON_BIN) {
+  $env:PYTHON_BIN
+} elseif (Get-Command python -ErrorAction SilentlyContinue) {
+  "python"
+} elseif (Get-Command python3 -ErrorAction SilentlyContinue) {
+  "python3"
+} else {
+  "python"
+}
 $RuleEngine = if ($env:RULE_ENGINE) { $env:RULE_ENGINE } else { Join-Path $Root "python_engine\conflictcraft_rules\main.py" }
 $RuleConfig = if ($env:RULE_CONFIG) { $env:RULE_CONFIG } else { Join-Path $Root "python_engine\rule_configs\default_rules.json" }
 $SampleDir = Join-Path $Root "testdata\small"
@@ -31,6 +39,7 @@ ConflictCraft CLI v$CliVersion
 Usage:
   conflictcraft.ps1 help
   conflictcraft.ps1 version
+  conflictcraft.ps1 setup [--backend-only]
   conflictcraft.ps1 config
   conflictcraft.ps1 doctor
   conflictcraft.ps1 rules
@@ -40,6 +49,7 @@ Usage:
   conflictcraft.ps1 samples list
   conflictcraft.ps1 samples run <sample-name> [--write|--no-write] [--explain]
   conflictcraft.ps1 analyze <core-analyze-args>
+  conflictcraft.ps1 core-merge <core-merge-args>
   conflictcraft.ps1 resolve <file> [--write|--no-write] [--explain]
   conflictcraft.ps1 explain <file>
   conflictcraft.ps1 resolve-all <path> [--write|--no-write] [--explain]
@@ -118,6 +128,44 @@ ConflictCraft configuration:
   rule_config:   $RuleConfig
   sample_dir:    $SampleDir
 "@
+}
+
+function Invoke-Setup([string[]]$SetupArgs) {
+  $BackendOnly = $false
+  foreach ($arg in $SetupArgs) {
+    switch ($arg) {
+      "--backend-only" { $BackendOnly = $true }
+      default { throw "unknown setup option: $arg" }
+    }
+  }
+
+  if ($IsWindows) {
+    cmake -S (Join-Path $Root "core") -B (Join-Path $Root "core\build") -G "MinGW Makefiles"
+  } else {
+    cmake -S (Join-Path $Root "core") -B (Join-Path $Root "core\build")
+  }
+  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+
+  cmake --build (Join-Path $Root "core\build")
+  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+
+  & $PythonBin -m pip install -r (Join-Path $Root "python_engine\requirements.txt")
+  if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+
+  if (-not $BackendOnly) {
+    Push-Location (Join-Path $Root "vscode-extension")
+    try {
+      npm install
+      if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+      npm run compile
+      if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+    } finally {
+      Pop-Location
+    }
+  }
+
+  Write-Host "ConflictCraft: setup completed."
+  return 0
 }
 
 function Invoke-Doctor {
@@ -349,6 +397,10 @@ try {
       exit 0
     }
 
+    "setup" {
+      exit (Invoke-Setup -SetupArgs $Args)
+    }
+
     "config" {
       Show-Config
       exit 0
@@ -406,6 +458,12 @@ try {
     "analyze" {
       Require-File $CoreBin "core binary"
       & $CoreBin analyze @Args
+      exit $LASTEXITCODE
+    }
+
+    "core-merge" {
+      Require-File $CoreBin "core binary"
+      & $CoreBin merge @Args
       exit $LASTEXITCODE
     }
 

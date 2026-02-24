@@ -22,6 +22,16 @@ ConflictCraft is a deterministic Git conflict visualizer and resolution engine.
 
 ## Quick Start
 
+### One-step setup (recommended)
+Unix:
+```bash
+bash scripts/conflictcraft setup
+```
+Windows:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/conflictcraft.ps1 setup
+```
+
 ### Build core
 Unix:
 ```bash
@@ -75,11 +85,13 @@ powershell -ExecutionPolicy Bypass -File scripts/conflictcraft.ps1 help
 ```
 
 Key commands:
+- `setup [--backend-only]`
 - `doctor`
 - `scan [path]`
 - `rules`
 - `samples list`
 - `samples run <import|whitespace|json|signature> [--no-write] [--explain]`
+- `core-merge --base <file> --ours <file> --theirs <file> [--out <file>]`
 - `resolve <file> [--write|--no-write] [--explain]`
 - `resolve-all <path> [--write|--no-write] [--explain]`
 - `git-setup`

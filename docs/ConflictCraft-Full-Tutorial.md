@@ -23,6 +23,22 @@ ConflictCraft combines five parts:
 
 If you understand those five parts, you understand the project.
 
+### One-step setup
+
+If you want a single command setup:
+
+Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/conflictcraft.ps1 setup
+```
+
+Linux/macOS:
+
+```bash
+bash scripts/conflictcraft setup
+```
+
 ---
 
 ## 1. What Problem ConflictCraft Solves
@@ -715,7 +731,7 @@ cd ..
 Windows:
 
 ```powershell
-code --extensionDevelopmentPath "e:\Zyad\Scripts\Ma projects\ConflictCraft\vscode-extension" "e:\Zyad\Scripts\Ma projects\ConflictCraft"
+code --extensionDevelopmentPath "path" "path"
 ```
 
 Linux/macOS:
@@ -778,7 +794,7 @@ npm run compile
 Windows example:
 
 ```powershell
-$env:CORE_BIN = "E:\tools\conflictcraft_core.exe"
+$env:CORE_BIN = "..\conflictcraft_core.exe"
 $env:PYTHON_BIN = "python"
 powershell -ExecutionPolicy Bypass -File scripts/conflictcraft.ps1 doctor
 ```

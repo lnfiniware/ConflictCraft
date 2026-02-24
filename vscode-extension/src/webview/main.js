@@ -110,6 +110,8 @@
     renderSuggestions(state.suggestions);
     renderExplain(state.explanations);
     renderGraph(payload.graphSummary || { nodes: 0, edges: 0 });
+    state.explainVisible = Boolean(payload.explainVisible);
+    explainPanel.classList.toggle("hidden", !state.explainVisible);
 
     summary.textContent =
       "Resolved hunks: " + (payload.summary?.resolved_hunks || 0) +

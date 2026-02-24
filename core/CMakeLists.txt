@@ -9,6 +9,7 @@ add_library(conflictcraft_lib
   src/parser.cpp
   src/diff3.cpp
   src/graph.cpp
+  src/hash.cpp
   src/serializer.cpp
   src/resolve.cpp
 )

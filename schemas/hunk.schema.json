@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "id",
+    "hunk_id",
     "type",
     "base_range",
     "ours_range",
@@ -19,6 +20,10 @@
     "id": {
       "type": "string",
       "pattern": "^hunk_[0-9]+$"
+    },
+    "hunk_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     },
     "type": {
       "type": "string",

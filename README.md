@@ -12,6 +12,12 @@ ConflictCraft is a deterministic Git conflict visualizer and resolution engine.
 - JSON: schema contracts between layers
 - Shell/PowerShell: CLI and Git mergetool integration
 
+## Marketplace-Safe Extension Backend
+- The VS Code extension bundles its own backend under `vscode-extension/backend/`.
+- The extension executes C++ and Python only from that bundled backend path.
+- It does not execute backend scripts from the user's workspace.
+- Platform-specific core binaries are resolved by OS at runtime.
+
 ## Repository Layout
 - `core/` C++ engine
 - `python_engine/` smart rule engine
@@ -23,7 +29,7 @@ ConflictCraft is a deterministic Git conflict visualizer and resolution engine.
 ## Quick Start
 
 ### One-step setup (recommended)
-Unix:
+Unix (Linux + macOS):
 ```bash
 bash scripts/conflictcraft setup
 ```
@@ -33,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File scripts/conflictcraft.ps1 setup
 ```
 
 ### Build core
-Unix:
+Unix (Linux + macOS):
 ```bash
 make core
 ```
@@ -43,7 +49,7 @@ mingw32-make core
 ```
 
 ### Run tests
-Unix:
+Unix (Linux + macOS):
 ```bash
 make test
 ```
@@ -53,7 +59,7 @@ mingw32-make test
 ```
 
 ### Resolve a conflicted file
-Unix:
+Unix (Linux + macOS):
 ```bash
 ./scripts/conflictcraft resolve path/to/conflicted.file --write
 ```
@@ -63,7 +69,7 @@ Windows:
 ```
 
 ### Install ConflictCraft as a device command
-Unix:
+Unix (Linux + macOS):
 ```bash
 bash scripts/install-device.sh
 conflictcraft doctor
@@ -75,7 +81,7 @@ conflictcraft doctor
 ```
 
 ### New CLI commands
-Unix:
+Unix (Linux + macOS):
 ```bash
 bash scripts/conflictcraft help
 ```
@@ -107,7 +113,7 @@ npm run compile
 ```
 
 ## Git Mergetool (global)
-Unix:
+Unix (Linux + macOS):
 ```bash
 bash scripts/install-mergetool.sh
 ```
@@ -117,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File scripts/install-mergetool.ps1
 ```
 
 Global command uninstall:
-Unix:
+Unix (Linux + macOS):
 ```bash
 bash scripts/uninstall-device.sh
 ```

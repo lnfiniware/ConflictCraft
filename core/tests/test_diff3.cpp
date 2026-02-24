@@ -28,6 +28,9 @@ int main() {
   REQUIRE_TRUE(hunks[0].is_conflict);
   REQUIRE_EQ(hunks[0].type, "conflict");
   REQUIRE_EQ(hunks[0].base_range.start, 1);
+  REQUIRE_EQ(hunks[0].hunk_id.size(), static_cast<size_t>(64));
+  auto second_run = conflictcraft::diff3_line_hunks(base, ours, theirs);
+  REQUIRE_EQ(second_run[0].hunk_id, hunks[0].hunk_id);
 
   return 0;
 }

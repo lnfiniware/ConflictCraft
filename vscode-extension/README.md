@@ -12,7 +12,8 @@ Instead of only staring at conflict markers, you get:
 
 1. C++ engine parses merge content and builds conflict hunks + graph.
 2. Python rule engine applies deterministic rules.
-3. Extension renders results and lets you apply/undo/save.
+3. Extension executes bundled backend files from `backend/` and never from workspace scripts.
+4. Extension renders results and lets you apply/undo/save.
 
 No AI guesswork is required for the core flow.
 
@@ -46,13 +47,21 @@ In the Extension Development Host:
 - `ConflictCraft: Resolve Git Unmerged Files`
 - `ConflictCraft: Open Full Tutorial`
 
+## Marketplace Packaging Model
+
+- Bundled backend path: `vscode-extension/backend/`
+- Bundled assets include:
+  - C++ core binary per platform folder under `backend/bin/`
+  - Python rule engine under `backend/python_engine/`
+  - Shell/PowerShell wrappers under `backend/scripts/`
+- Runtime path checks ensure backend execution stays inside extension directory.
+
 ## Settings
 
-- `conflictcraft.coreBinaryPath`
-- `conflictcraft.pythonPath`
-- `conflictcraft.ruleEnginePath`
-
-Set these if your binaries are not found automatically.
+- `conflictcraft.autoPrompt` = `always | once | never` (default: `once`)
+- `conflictcraft.pythonPath` (default: `python3`)
+- `conflictcraft.enableSmartRules` (default: `true`)
+- `conflictcraft.showExplainMode` (default: `true`)
 
 ## Example Conflict Files
 
@@ -76,6 +85,7 @@ npm run publish:patch
 Before publishing:
 - confirm `publisher` in `package.json`
 - confirm icon path (`assets/conflictcraft-logo.png`)
+- confirm backend binaries exist in `backend/bin/` for target platforms
 - run `npm run compile`
 
 ## Full Tutorial

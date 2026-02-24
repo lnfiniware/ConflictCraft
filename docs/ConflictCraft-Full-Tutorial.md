@@ -6,6 +6,9 @@ It is written for actual day to day use: build it, run it, debug it, extend it, 
 This guide is not a generic VS Code extension tutorial.
 It is specifically about how this ConflictCraft repository works and how to use it productively.
 
+Note:
+- In this document, "Unix" means Linux and macOS.
+
 ---
 
 ## 0. Read This First
@@ -83,6 +86,14 @@ Use this mental route when debugging:
 1. Core JSON first.
 2. Rule output JSON second.
 3. Extension behavior third.
+
+Marketplace backend model:
+- `vscode-extension/backend/bin/` for platform core binaries
+- `vscode-extension/backend/python_engine/` for deterministic rules
+- `vscode-extension/backend/scripts/` for packaged wrappers
+
+The VS Code extension executes backend from this bundled directory only.
+It does not execute backend scripts from the workspace.
 
 ---
 

@@ -3,43 +3,135 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 
-import { BackendClient, ResolveBundle } from "./backendClient";
+import { BackendClient, BackendExecutionError, ResolveBundle } from "./backendClient";
 import { documentHasConflicts } from "./conflictDetector";
 
 let panel: vscode.WebviewPanel | undefined;
 let latestBundle: ResolveBundle | undefined;
 let latestFilePath = "";
+let backendReady = false;
+let backendIssues: string[] = [];
 
-export function activate(context: vscode.ExtensionContext): void {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceFolder) {
-    return;
+function getConfig(): {
+  autoPrompt: "always" | "once" | "never";
+  enableSmartRules: boolean;
+  showExplainMode: boolean;
+} {
+  const config = vscode.workspace.getConfiguration("conflictcraft");
+  const autoPrompt = config.get<string>("autoPrompt", "once");
+  return {
+    autoPrompt: autoPrompt === "always" || autoPrompt === "never" ? autoPrompt : "once",
+    enableSmartRules: config.get<boolean>("enableSmartRules", true),
+    showExplainMode: config.get<boolean>("showExplainMode", true),
+  };
+}
+
+async function runProcess(command: string, args: string[], cwd?: string): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = cp.spawn(command, args, { cwd, shell: false });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      resolve({
+        code: 1,
+        stdout,
+        stderr: `${stderr}${error.message}`,
+      });
+    });
+    child.on("close", (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}
+
+function getWorkspaceRoot(): string | undefined {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function ensureBackendReady(): boolean {
+  if (backendReady) {
+    return true;
   }
 
-  const backend = new BackendClient(workspaceFolder);
+  const issueDetails = backendIssues.length > 0 ? `\n${backendIssues.join("\n")}` : "";
+  void vscode.window.showErrorMessage(`ConflictCraft backend is unavailable.${issueDetails}`);
+  return false;
+}
+
+export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("ConflictCraft");
   context.subscriptions.push(output);
+
+  const backend = new BackendClient(context.extensionPath);
   const prompted = new Set<string>();
 
+  const runPreflight = async (): Promise<void> => {
+    const config = getConfig();
+    const check = await backend.preflight(config.enableSmartRules);
+    backendReady = check.ok;
+    backendIssues = check.issues;
+    if (!check.ok) {
+      void vscode.window.showErrorMessage(
+        "ConflictCraft backend files are missing for this platform. Commands are disabled until backend is available.",
+      );
+      output.appendLine("ConflictCraft preflight failed:");
+      for (const issue of check.issues) {
+        output.appendLine(`- ${issue}`);
+      }
+    }
+  };
+
+  void runPreflight();
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (
+        event.affectsConfiguration("conflictcraft.pythonPath") ||
+        event.affectsConfiguration("conflictcraft.enableSmartRules") ||
+        event.affectsConfiguration("conflictcraft.autoPrompt") ||
+        event.affectsConfiguration("conflictcraft.showExplainMode")
+      ) {
+        void runPreflight();
+      }
+    }),
+  );
+
   const maybePrompt = async (document: vscode.TextDocument): Promise<void> => {
+    const config = getConfig();
+    if (config.autoPrompt === "never") {
+      return;
+    }
     if (document.uri.scheme !== "file") {
       return;
     }
     if (!documentHasConflicts(document)) {
       return;
     }
-    if (prompted.has(document.uri.fsPath)) {
+    if (config.autoPrompt === "once" && prompted.has(document.uri.fsPath)) {
       return;
     }
+    if (config.autoPrompt === "once") {
+      prompted.add(document.uri.fsPath);
+    }
 
-    prompted.add(document.uri.fsPath);
     const choice = await vscode.window.showInformationMessage(
       "Conflict markers detected. Open ConflictCraft editor?",
       "Open",
       "Later",
     );
     if (choice === "Open") {
-      await openEditorForDocument(document, backend, context);
+      await openEditorForDocument(document, backend, context, output);
     }
   };
 
@@ -59,25 +151,45 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("conflictcraft.openEditor", async () => {
+      if (!ensureBackendReady()) {
+        return;
+      }
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         return;
       }
-      await openEditorForDocument(editor.document, backend, context);
+      await openEditorForDocument(editor.document, backend, context, output);
     }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("conflictcraft.resolveCurrentFile", async () => {
+      if (!ensureBackendReady()) {
+        return;
+      }
+
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         return;
       }
 
-      const bundle = await backend.resolveConflictFile(editor.document.uri.fsPath);
-      await fs.promises.writeFile(editor.document.uri.fsPath, bundle.resolvedText, "utf8");
-      await editor.document.save();
-      vscode.window.showInformationMessage("ConflictCraft applied safe deterministic rules.");
+      try {
+        const config = getConfig();
+        const bundle = await backend.resolveConflictFile(editor.document.uri.fsPath, {
+          enableSmartRules: config.enableSmartRules,
+        });
+        await fs.promises.writeFile(editor.document.uri.fsPath, bundle.resolvedText, "utf8");
+        await editor.document.save();
+        if (bundle.resolutionExitCode === 0) {
+          void vscode.window.showInformationMessage("ConflictCraft resolution completed.");
+        } else if (bundle.resolutionExitCode === 2) {
+          void vscode.window.showWarningMessage("Manual conflicts remain.");
+        } else {
+          void vscode.window.showErrorMessage(`ConflictCraft failed (exit ${bundle.resolutionExitCode}).`);
+        }
+      } catch (error) {
+        reportBackendError(error, output);
+      }
     }),
   );
 
@@ -103,68 +215,160 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("conflictcraft.runDoctor", async () => {
       output.clear();
       output.show(true);
-      output.appendLine("ConflictCraft: running doctor");
-      const exitCode = await runCliCommand(workspaceFolder, ["doctor"], output);
-      if (exitCode === 0) {
-        vscode.window.showInformationMessage("ConflictCraft doctor passed.");
+      const config = getConfig();
+      const check = await backend.preflight(config.enableSmartRules);
+      backendReady = check.ok;
+      backendIssues = check.issues;
+
+      output.appendLine("ConflictCraft doctor report");
+      output.appendLine("-------------------------");
+      output.appendLine(`[${check.ok ? "ok" : "fail"}] extension backend root: ${backend.getBackendRoot()}`);
+      if (!check.ok) {
+        for (const issue of check.issues) {
+          output.appendLine(`[fail] ${issue}`);
+        }
+      }
+
+      const workspaceRoot = getWorkspaceRoot();
+      if (workspaceRoot) {
+        const gitCheck = await runProcess("git", ["rev-parse", "--is-inside-work-tree"], workspaceRoot);
+        output.appendLine(gitCheck.code === 0 ? "[ok] git repository detected" : "[warn] workspace is not a git repository");
       } else {
-        vscode.window.showErrorMessage(`ConflictCraft doctor found issues (exit ${exitCode}). Check Output: ConflictCraft.`);
+        output.appendLine("[warn] no workspace folder is open");
+      }
+
+      if (check.ok) {
+        void vscode.window.showInformationMessage("ConflictCraft doctor passed.");
+      } else {
+        void vscode.window.showErrorMessage("ConflictCraft doctor found backend issues.");
       }
     }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("conflictcraft.scanWorkspaceConflicts", async () => {
+      const workspaceRoot = getWorkspaceRoot();
+      if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a workspace folder to scan conflicts.");
+        return;
+      }
+
       output.clear();
       output.show(true);
-      output.appendLine("ConflictCraft: scanning workspace for conflict markers");
-      const exitCode = await runCliCommand(workspaceFolder, ["scan", workspaceFolder], output);
-      if (exitCode === 0) {
-        vscode.window.showInformationMessage("ConflictCraft scan completed.");
-      } else {
-        vscode.window.showErrorMessage(`ConflictCraft scan failed (exit ${exitCode}). Check Output: ConflictCraft.`);
+      output.appendLine(`ConflictCraft: scanning ${workspaceRoot}`);
+
+      const files = await vscode.workspace.findFiles("**/*", "**/.git/**");
+      const conflictFiles: string[] = [];
+      for (const file of files) {
+        if (file.scheme !== "file") {
+          continue;
+        }
+        try {
+          const content = await fs.promises.readFile(file.fsPath, "utf8");
+          if (content.includes("<<<<<<<")) {
+            conflictFiles.push(file.fsPath);
+          }
+        } catch {
+          // Ignore non-text files.
+        }
       }
+
+      if (conflictFiles.length === 0) {
+        output.appendLine("No conflict markers found.");
+      } else {
+        output.appendLine(`Conflict files (${conflictFiles.length}):`);
+        for (const item of conflictFiles) {
+          output.appendLine(`  ${item}`);
+        }
+      }
+      void vscode.window.showInformationMessage(`Conflict scan completed: ${conflictFiles.length} file(s).`);
     }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("conflictcraft.resolveGitUnmerged", async () => {
+      if (!ensureBackendReady()) {
+        return;
+      }
+      const workspaceRoot = getWorkspaceRoot();
+      if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a git workspace folder first.");
+        return;
+      }
+
       const choice = await vscode.window.showQuickPick(
         [
-          { label: "Preview only (Recommended)", args: ["git-resolve", "--no-write", "--explain"] },
-          { label: "Apply safe resolutions", args: ["git-resolve", "--write", "--explain"] },
+          { label: "Preview only (Recommended)", applyChanges: false },
+          { label: "Apply safe resolutions", applyChanges: true },
         ],
         {
           title: "ConflictCraft: Resolve Git Unmerged Files",
           placeHolder: "Choose how ConflictCraft should run",
         },
       );
-
       if (!choice) {
         return;
       }
 
-      output.clear();
-      output.show(true);
-      output.appendLine(`ConflictCraft: running ${choice.args.join(" ")}`);
+      const gitUnmerged = await runProcess("git", ["diff", "--name-only", "--diff-filter=U"], workspaceRoot);
+      if (gitUnmerged.code !== 0) {
+        void vscode.window.showErrorMessage("Failed to query git unmerged files.");
+        return;
+      }
 
-      const exitCode = await runCliCommand(workspaceFolder, choice.args, output);
-      if (exitCode === 0) {
-        vscode.window.showInformationMessage("ConflictCraft git-resolve completed.");
-      } else if (exitCode === 2) {
-        vscode.window.showWarningMessage("ConflictCraft git-resolve completed with manual conflicts remaining.");
+      const files = gitUnmerged.stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => path.resolve(workspaceRoot, line));
+
+      if (files.length === 0) {
+        void vscode.window.showInformationMessage("No unmerged files found.");
+        return;
+      }
+
+      const config = getConfig();
+      let resolved = 0;
+      let manual = 0;
+
+      for (const filePath of files) {
+        try {
+          const bundle = await backend.resolveConflictFile(filePath, {
+            enableSmartRules: config.enableSmartRules,
+          });
+          if (choice.applyChanges) {
+            await fs.promises.writeFile(filePath, bundle.resolvedText, "utf8");
+          }
+          if (bundle.resolutionExitCode === 0) {
+            resolved += 1;
+          } else if (bundle.resolutionExitCode === 2) {
+            manual += 1;
+          }
+        } catch (error) {
+          reportBackendError(error, output);
+          return;
+        }
+      }
+
+      if (manual > 0) {
+        void vscode.window.showWarningMessage(`Manual conflicts remain in ${manual} file(s).`);
       } else {
-        vscode.window.showErrorMessage(`ConflictCraft git-resolve failed (exit ${exitCode}). Check Output: ConflictCraft.`);
+        void vscode.window.showInformationMessage(`ConflictCraft processed ${resolved} file(s).`);
       }
     }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("conflictcraft.openFullTutorial", async () => {
-      const tutorialPath = path.join(workspaceFolder, "docs", "ConflictCraft-Full-Tutorial.md");
-      const fallbackReadme = path.join(workspaceFolder, "README.md");
-      const targetPath = fs.existsSync(tutorialPath) ? tutorialPath : fallbackReadme;
-      const document = await vscode.workspace.openTextDocument(targetPath);
+      const workspaceRoot = getWorkspaceRoot();
+      const candidatePaths = [
+        workspaceRoot ? path.join(workspaceRoot, "docs", "ConflictCraft-Full-Tutorial.md") : "",
+        workspaceRoot ? path.join(workspaceRoot, "README.md") : "",
+        path.join(context.extensionPath, "README.md"),
+      ].filter(Boolean);
+
+      const selected = candidatePaths.find((candidate) => fs.existsSync(candidate)) || candidatePaths[candidatePaths.length - 1];
+      const document = await vscode.workspace.openTextDocument(selected);
       await vscode.window.showTextDocument(document, { preview: false });
     }),
   );
@@ -172,13 +376,39 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {}
 
+function reportBackendError(error: unknown, output: vscode.OutputChannel): void {
+  if (error instanceof BackendExecutionError) {
+    output.appendLine(`[backend error] ${error.message}`);
+    output.appendLine(`command: ${error.command} ${error.args.join(" ")}`);
+    if (error.stderr.trim()) {
+      output.appendLine(error.stderr.trim());
+    }
+    output.show(true);
+    void vscode.window.showErrorMessage("ConflictCraft backend failed. Check Output: ConflictCraft.");
+    return;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  output.appendLine(`[backend error] ${message}`);
+  output.show(true);
+  void vscode.window.showErrorMessage(message);
+}
+
 async function openEditorForDocument(
   document: vscode.TextDocument,
   backend: BackendClient,
   context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
 ): Promise<void> {
-  latestBundle = await backend.resolveConflictFile(document.uri.fsPath);
-  latestFilePath = document.uri.fsPath;
+  try {
+    const config = getConfig();
+    latestBundle = await backend.resolveConflictFile(document.uri.fsPath, {
+      enableSmartRules: config.enableSmartRules,
+    });
+    latestFilePath = document.uri.fsPath;
+  } catch (error) {
+    reportBackendError(error, output);
+    return;
+  }
 
   if (!panel) {
     panel = vscode.window.createWebviewPanel(
@@ -205,7 +435,7 @@ async function openEditorForDocument(
 
       if (message.type === "saveResult") {
         await fs.promises.writeFile(latestFilePath, String(message.payload?.text || ""), "utf8");
-        vscode.window.showInformationMessage("ConflictCraft result saved.");
+        void vscode.window.showInformationMessage("ConflictCraft result saved.");
       }
 
       if (message.type === "requestInit") {
@@ -221,6 +451,7 @@ async function openEditorForDocument(
 }
 
 function makeInitPayload(bundle: ResolveBundle, filePath: string): any {
+  const config = getConfig();
   const firstConflict = bundle.analysis.hunks.find((h) => h.is_conflict) || bundle.analysis.hunks[0];
 
   return {
@@ -231,6 +462,7 @@ function makeInitPayload(bundle: ResolveBundle, filePath: string): any {
       oursText: (firstConflict?.ours_lines || []).join("\n"),
       theirsText: (firstConflict?.theirs_lines || []).join("\n"),
       resultText: bundle.resolvedText,
+      explainVisible: config.showExplainMode,
       graphSummary: {
         nodes: bundle.analysis.graph.nodes.length,
         edges: bundle.analysis.graph.edges.length,
@@ -252,47 +484,4 @@ function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): stri
   html = html.replace("{{scriptUri}}", scriptUri.toString());
   html = html.replace("{{styleUri}}", styleUri.toString());
   return html;
-}
-
-function getCliInvocation(workspaceRoot: string, args: string[]): { command: string; argv: string[] } {
-  if (process.platform === "win32") {
-    const script = path.join(workspaceRoot, "scripts", "conflictcraft.ps1");
-    return {
-      command: "powershell",
-      argv: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...args],
-    };
-  }
-
-  const script = path.join(workspaceRoot, "scripts", "conflictcraft");
-  return {
-    command: "bash",
-    argv: [script, ...args],
-  };
-}
-
-function runCliCommand(workspaceRoot: string, args: string[], output: vscode.OutputChannel): Promise<number> {
-  const invocation = getCliInvocation(workspaceRoot, args);
-  return new Promise((resolve) => {
-    const child = cp.spawn(invocation.command, invocation.argv, {
-      cwd: workspaceRoot,
-      shell: false,
-    });
-
-    child.stdout.on("data", (chunk) => {
-      output.append(chunk.toString());
-    });
-
-    child.stderr.on("data", (chunk) => {
-      output.append(chunk.toString());
-    });
-
-    child.on("error", (error) => {
-      output.appendLine(`\nConflictCraft extension error: ${error.message}`);
-      resolve(1);
-    });
-
-    child.on("close", (code) => {
-      resolve(code ?? 1);
-    });
-  });
 }

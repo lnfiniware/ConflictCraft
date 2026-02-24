@@ -1,6 +1,9 @@
 #include "conflictcraft/diff3.hpp"
 
 #include <algorithm>
+#include <sstream>
+
+#include "conflictcraft/hash.hpp"
 
 namespace {
 
@@ -22,6 +25,26 @@ std::vector<std::string> slice(const std::vector<std::string>& lines, std::size_
   }
   return std::vector<std::string>(lines.begin() + static_cast<std::ptrdiff_t>(start),
                                   lines.begin() + static_cast<std::ptrdiff_t>(bounded_end));
+}
+
+std::string canonical_hunk_payload(
+    const std::vector<std::string>& base_lines,
+    const std::vector<std::string>& ours_lines,
+    const std::vector<std::string>& theirs_lines) {
+  std::ostringstream out;
+  out << "base\n";
+  for (const auto& line : base_lines) {
+    out << line << "\n";
+  }
+  out << "---\nours\n";
+  for (const auto& line : ours_lines) {
+    out << line << "\n";
+  }
+  out << "---\ntheirs\n";
+  for (const auto& line : theirs_lines) {
+    out << line << "\n";
+  }
+  return out.str();
 }
 
 }  // namespace
@@ -65,6 +88,7 @@ std::vector<Hunk> diff3_line_hunks(
     hunk.base_lines = slice(base, start, end);
     hunk.ours_lines = slice(ours, start, end);
     hunk.theirs_lines = slice(theirs, start, end);
+    hunk.hunk_id = sha256_hex(canonical_hunk_payload(hunk.base_lines, hunk.ours_lines, hunk.theirs_lines));
 
     const bool same_ours_theirs = hunk.ours_lines == hunk.theirs_lines;
     const bool ours_matches_base = hunk.ours_lines == hunk.base_lines;

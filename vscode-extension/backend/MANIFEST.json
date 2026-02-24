@@ -1,0 +1,19 @@
+{
+  "backend_version": "0.2.1",
+  "layout": {
+    "core_binaries": [
+      "bin/win32-x64/conflictcraft_core.exe",
+      "bin/win32-arm64/conflictcraft_core.exe",
+      "bin/linux-x64/conflictcraft_core",
+      "bin/linux-arm64/conflictcraft_core",
+      "bin/darwin-x64/conflictcraft_core",
+      "bin/darwin-arm64/conflictcraft_core"
+    ],
+    "python_engine": "python_engine/conflictcraft_rules/main.py",
+    "rule_config": "python_engine/rule_configs/default_rules.json",
+    "scripts": [
+      "scripts/conflictcraft",
+      "scripts/conflictcraft.ps1"
+    ]
+  }
+}

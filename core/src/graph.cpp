@@ -37,7 +37,7 @@ ConflictGraph build_conflict_graph(const std::vector<Hunk>& hunks) {
   for (std::size_t i = 0; i < hunks.size(); ++i) {
     GraphNode node;
     node.node_id = "node_" + std::to_string(i + 1);
-    node.hunk_id = hunks[i].id;
+    node.hunk_id = hunks[i].hunk_id.empty() ? hunks[i].id : hunks[i].hunk_id;
     node.category = hunks[i].type;
     graph.nodes.push_back(std::move(node));
   }

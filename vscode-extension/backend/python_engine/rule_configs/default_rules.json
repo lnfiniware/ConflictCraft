@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "auto_apply": {
+    "enabled": true,
+    "min_confidence": 0.95
+  },
+  "rules": [
+    {
+      "id": "whitespace_ignore",
+      "enabled": true,
+      "priority": 10,
+      "safe_to_apply": true
+    },
+    {
+      "id": "import_block_merge",
+      "enabled": true,
+      "priority": 20,
+      "safe_to_apply": true
+    },
+    {
+      "id": "json_key_merge",
+      "enabled": true,
+      "priority": 30,
+      "safe_to_apply": true
+    },
+    {
+      "id": "function_signature_conflict",
+      "enabled": true,
+      "priority": 40,
+      "safe_to_apply": false
+    }
+  ]
+}

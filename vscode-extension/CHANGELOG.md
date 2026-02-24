@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1
+- Fixed backend pathing so extension runs bundled backend from `extension/backend` instead of workspace scripts.
+- Added activation preflight checks and graceful command disable when backend files are missing.
+- Added settings: `conflictcraft.autoPrompt`, `conflictcraft.enableSmartRules`, `conflictcraft.showExplainMode` and updated default `conflictcraft.pythonPath=python3`.
+- Added core exit-code aware UX (`0` success, `2` manual conflicts remain, other non-zero as error).
+- Hardened execution path validation to reject backend execution outside extension directory.
+- Added bundled backend manifest and platform backend folder layout for Marketplace-safe packaging.
+
 ## 0.2.0
 - Added command `ConflictCraft: Run Doctor` to verify backend prerequisites.
 - Added command `ConflictCraft: Scan Workspace Conflicts` to list files with markers.

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+CORE_BIN="$BACKEND_DIR/bin/linux-x64/conflictcraft_core"
+PYTHON_BIN="${CONFLICTCRAFT_PYTHON:-python3}"
+RULE_ENGINE="$BACKEND_DIR/python_engine/conflictcraft_rules/main.py"
+RULE_CONFIG="$BACKEND_DIR/python_engine/rule_configs/default_rules.json"
+
+if [[ "${OSTYPE:-}" == darwin* ]]; then
+  CORE_BIN="$BACKEND_DIR/bin/darwin-arm64/conflictcraft_core"
+elif [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+  CORE_BIN="$BACKEND_DIR/bin/win32-x64/conflictcraft_core.exe"
+fi
+
+if [[ $# -lt 1 ]]; then
+  echo '{"ok":false,"error":{"code":"missing_command","message":"usage: conflictcraft <analyze|resolve>"}}' >&2
+  exit 64
+fi
+
+cmd="$1"
+shift
+
+case "$cmd" in
+  analyze)
+    exec "$CORE_BIN" analyze "$@"
+    ;;
+  resolve)
+    target="${1:-}"
+    [[ -n "$target" ]] || { echo '{"ok":false,"error":{"code":"missing_path","message":"resolve requires file path"}}' >&2; exit 64; }
+    tmp_dir="$(mktemp -d)"
+    analysis_json="$tmp_dir/analysis.json"
+    rules_json="$tmp_dir/rules.json"
+    resolved_txt="$tmp_dir/resolved.txt"
+    "$CORE_BIN" analyze --conflict-file "$target" --out "$analysis_json" --file "$(basename "$target")"
+    "$PYTHON_BIN" "$RULE_ENGINE" --analysis "$analysis_json" --out "$rules_json" --config "$RULE_CONFIG" --conflict-file "$target" --resolved-out "$resolved_txt"
+    cat "$resolved_txt"
+    ;;
+  *)
+    echo "{\"ok\":false,\"error\":{\"code\":\"unknown_command\",\"message\":\"unsupported command: $cmd\"}}" >&2
+    exit 64
+    ;;
+esac
+

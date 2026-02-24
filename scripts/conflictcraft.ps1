@@ -61,6 +61,18 @@ Sample names:
 "@
 }
 
+function Write-JsonError([string]$Code, [string]$Message, [int]$ExitCode = 1) {
+  $payload = @{
+    ok = $false
+    error = @{
+      code = $Code
+      message = $Message
+    }
+  } | ConvertTo-Json -Compress
+  [Console]::Error.WriteLine($payload)
+  exit $ExitCode
+}
+
 function Require-File([string]$Path, [string]$Label) {
   if (-not (Test-Path $Path)) {
     throw "$Label not found: $Path"
@@ -381,8 +393,8 @@ function Git-Resolve([string[]]$ResolveArgs) {
 }
 
 if (-not $Command) {
-  Show-Usage
-  exit 1
+  [Console]::Error.WriteLine((Show-Usage))
+  Write-JsonError -Code "missing_command" -Message "a command is required" -ExitCode 64
 }
 
 try {
@@ -502,6 +514,15 @@ try {
     }
   }
 } catch {
-  Write-Error ("ConflictCraft: " + $_.Exception.Message)
-  exit 1
+  $message = $_.Exception.Message
+  $code = "runtime_error"
+  $exitCode = 1
+  if ($message -match "requires <file>|unknown .*option|unknown .*subcommand|unknown command|sample name") {
+    $code = "invalid_argument"
+    $exitCode = 64
+  } elseif ($message -match "not found|path not found|file not found") {
+    $code = "file_not_found"
+    $exitCode = 66
+  }
+  Write-JsonError -Code $code -Message $message -ExitCode $exitCode
 }

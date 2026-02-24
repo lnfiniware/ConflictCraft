@@ -12,6 +12,7 @@ struct Range {
 
 struct Hunk {
   std::string id;
+  std::string hunk_id;
   std::string type;
   Range base_range;
   Range ours_range;

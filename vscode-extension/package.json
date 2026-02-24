@@ -2,7 +2,7 @@
   "name": "conflictcraft-vscode",
   "displayName": "ConflictCraft",
   "description": "Visual and explainable Git conflict resolution",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "infiniware",
   "icon": "assets/conflictcraft-logo.png",
   "keywords": [
@@ -71,20 +71,30 @@
     "configuration": {
       "title": "ConflictCraft",
       "properties": {
-        "conflictcraft.coreBinaryPath": {
+        "conflictcraft.autoPrompt": {
           "type": "string",
-          "default": "",
-          "description": "Optional path to conflictcraft_core binary. If empty, workspace default path is used."
+          "enum": [
+            "always",
+            "once",
+            "never"
+          ],
+          "default": "once",
+          "description": "Controls automatic prompt behavior when conflict markers are detected."
         },
         "conflictcraft.pythonPath": {
           "type": "string",
-          "default": "python",
-          "description": "Python executable for running the rule engine."
+          "default": "python3",
+          "description": "Python executable used by the bundled ConflictCraft rule engine."
         },
-        "conflictcraft.ruleEnginePath": {
-          "type": "string",
-          "default": "",
-          "description": "Optional path to python_engine/conflictcraft_rules/main.py"
+        "conflictcraft.enableSmartRules": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable deterministic Python smart rules on top of core merge behavior."
+        },
+        "conflictcraft.showExplainMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Explain Mode panel by default when opening ConflictCraft editor."
         }
       }
     }

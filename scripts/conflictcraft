@@ -73,20 +73,39 @@ warn() {
   printf "ConflictCraft: %s\n" "$*" >&2
 }
 
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf "%s" "$value"
+}
+
+json_error() {
+  local code="$1"
+  local message="$2"
+  printf '{"ok":false,"error":{"code":"%s","message":"%s"}}\n' "$(json_escape "$code")" "$(json_escape "$message")" >&2
+}
+
 die() {
-  warn "$*"
-  exit 1
+  local code="${1:-runtime_error}"
+  local message="${2:-unknown error}"
+  local exit_code="${3:-1}"
+  json_error "$code" "$message"
+  exit "$exit_code"
 }
 
 require_file() {
   local file="$1"
   local label="$2"
-  [[ -f "$file" ]] || die "$label not found: $file"
+  [[ -f "$file" ]] || die "file_not_found" "$label not found: $file" 66
 }
 
 require_command() {
   local cmd="$1"
-  command -v "$cmd" >/dev/null 2>&1 || die "$cmd is required but not found in PATH"
+  command -v "$cmd" >/dev/null 2>&1 || die "missing_dependency" "$cmd is required but not found in PATH" 69
 }
 
 show_config() {
@@ -110,7 +129,7 @@ run_setup() {
         backend_only=1
         ;;
       *)
-        die "unknown setup option: $1"
+        die "invalid_argument" "unknown setup option: $1" 64
         ;;
     esac
     shift
@@ -158,13 +177,13 @@ resolve_file() {
         explain_mode=1
         ;;
       *)
-        die "unknown resolve option: $1"
+        die "invalid_argument" "unknown resolve option: $1" 64
         ;;
     esac
     shift
   done
 
-  [[ -f "$target_file" ]] || die "file not found: $target_file"
+  [[ -f "$target_file" ]] || die "file_not_found" "file not found: $target_file" 66
   require_file "$CORE_BIN" "core binary"
   require_file "$RULE_ENGINE" "rule engine"
   require_command "$PYTHON_BIN"
@@ -227,13 +246,13 @@ resolve_all() {
         explain_flag="--explain"
         ;;
       *)
-        die "unknown resolve-all option: $1"
+        die "invalid_argument" "unknown resolve-all option: $1" 64
         ;;
     esac
     shift
   done
 
-  [[ -e "$target_path" ]] || die "path not found: $target_path"
+  [[ -e "$target_path" ]] || die "file_not_found" "path not found: $target_path" 66
 
   mapfile -t conflict_files < <(find_conflict_files "$target_path")
   if [[ ${#conflict_files[@]} -eq 0 ]]; then
@@ -272,7 +291,7 @@ resolve_all() {
 
 scan_conflicts() {
   local scan_path="${1:-.}"
-  [[ -e "$scan_path" ]] || die "path not found: $scan_path"
+  [[ -e "$scan_path" ]] || die "file_not_found" "path not found: $scan_path" 66
 
   mapfile -t conflict_files < <(find_conflict_files "$scan_path")
   if [[ ${#conflict_files[@]} -eq 0 ]]; then
@@ -293,7 +312,7 @@ git_setup() {
 
 git_resolve() {
   require_command git
-  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not inside a git repository"
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not_git_repo" "not inside a git repository" 65
 
   local write_flag="--no-write"
   local explain_flag=""
@@ -310,7 +329,7 @@ git_resolve() {
         explain_flag="--explain"
         ;;
       *)
-        die "unknown git-resolve option: $1"
+        die "invalid_argument" "unknown git-resolve option: $1" 64
         ;;
     esac
     shift
@@ -442,10 +461,10 @@ run_sample() {
   shift || true
 
   local sample_file="${SAMPLE_MAP[$sample_name]-}"
-  [[ -n "$sample_file" ]] || die "unknown sample: $sample_name"
+  [[ -n "$sample_file" ]] || die "invalid_argument" "unknown sample: $sample_name" 64
 
   local full_path="$SAMPLE_DIR/$sample_file"
-  [[ -f "$full_path" ]] || die "sample file missing: $full_path"
+  [[ -f "$full_path" ]] || die "file_not_found" "sample file missing: $full_path" 66
 
   resolve_file "$full_path" "$@"
 }
@@ -456,8 +475,9 @@ run_core_merge() {
 }
 
 if [[ $# -lt 1 ]]; then
-  usage
-  exit 1
+  usage >&2
+  json_error "missing_command" "a command is required"
+  exit 64
 fi
 
 cmd="$1"
@@ -509,13 +529,13 @@ case "$cmd" in
         list_samples
         ;;
       run)
-        [[ $# -ge 1 ]] || die "samples run requires a sample name"
+        [[ $# -ge 1 ]] || die "invalid_argument" "samples run requires a sample name" 64
         sample_name="$1"
         shift
         run_sample "$sample_name" "$@"
         ;;
       *)
-        die "unknown samples subcommand: $subcmd"
+        die "invalid_argument" "unknown samples subcommand: $subcmd" 64
         ;;
     esac
     ;;
@@ -530,14 +550,14 @@ case "$cmd" in
     ;;
 
   resolve)
-    [[ $# -ge 1 ]] || die "resolve requires <file>"
+    [[ $# -ge 1 ]] || die "invalid_argument" "resolve requires <file>" 64
     target_file="$1"
     shift
     resolve_file "$target_file" "$@"
     ;;
 
   explain)
-    [[ $# -ge 1 ]] || die "explain requires <file>"
+    [[ $# -ge 1 ]] || die "invalid_argument" "explain requires <file>" 64
     target_file="$1"
     shift
     resolve_file "$target_file" --no-write --explain "$@"
@@ -558,6 +578,6 @@ case "$cmd" in
     ;;
 
   *)
-    die "unknown command: $cmd"
+    die "unknown_command" "unknown command: $cmd" 64
     ;;
 esac

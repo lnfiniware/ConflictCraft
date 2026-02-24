@@ -66,6 +66,7 @@ std::string to_json(const AnalysisResult& result) {
     }
     out << "{";
     out << "\"id\":\"" << escape_json(h.id) << "\",";
+    out << "\"hunk_id\":\"" << escape_json(h.hunk_id) << "\",";
     out << "\"type\":\"" << escape_json(h.type) << "\",";
     out << "\"base_range\":";
     write_range(out, h.base_range);

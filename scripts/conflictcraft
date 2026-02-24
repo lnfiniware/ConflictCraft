@@ -1,23 +1,403 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CLI_VERSION="0.4.0"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CORE_BIN="${CORE_BIN:-$ROOT_DIR/core/build/conflictcraft_core}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 RULE_ENGINE="${RULE_ENGINE:-$ROOT_DIR/python_engine/conflictcraft_rules/main.py}"
+RULE_CONFIG="${RULE_CONFIG:-$ROOT_DIR/python_engine/rule_configs/default_rules.json}"
+SAMPLE_DIR="$ROOT_DIR/testdata/small"
 
 if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
   CORE_BIN="${CORE_BIN}.exe"
 fi
 
+declare -A SAMPLE_MAP=(
+  [import]="sample_import_conflict.js"
+  [whitespace]="sample_whitespace_conflict.js"
+  [json]="sample_json_conflict.json"
+  [signature]="sample_function_signature_conflict.js"
+)
+
 usage() {
   cat <<EOF
-ConflictCraft CLI
+ConflictCraft CLI v$CLI_VERSION
 
 Usage:
-  conflictcraft analyze <args>
+  conflictcraft help
+  conflictcraft version
+  conflictcraft config
+  conflictcraft doctor
+  conflictcraft rules
+  conflictcraft scan [path]
+  conflictcraft git-setup
+  conflictcraft git-resolve [--write|--no-write] [--explain]
+  conflictcraft samples list
+  conflictcraft samples run <sample-name> [--write|--no-write] [--explain]
+  conflictcraft analyze <core-analyze-args>
   conflictcraft resolve <file> [--write|--no-write] [--explain]
+  conflictcraft explain <file>
+  conflictcraft resolve-all <path> [--write|--no-write] [--explain]
+  conflictcraft install [install-script-options]
+  conflictcraft uninstall [uninstall-script-options]
+
+Sample names:
+  import, whitespace, json, signature
+
+Exit codes:
+  0: fully resolved/success
+  1: fatal error
+  2: partial resolution (manual action required)
 EOF
+}
+
+info() {
+  printf "ConflictCraft: %s\n" "$*"
+}
+
+warn() {
+  printf "ConflictCraft: %s\n" "$*" >&2
+}
+
+die() {
+  warn "$*"
+  exit 1
+}
+
+require_file() {
+  local file="$1"
+  local label="$2"
+  [[ -f "$file" ]] || die "$label not found: $file"
+}
+
+require_command() {
+  local cmd="$1"
+  command -v "$cmd" >/dev/null 2>&1 || die "$cmd is required but not found in PATH"
+}
+
+show_config() {
+  cat <<EOF
+ConflictCraft configuration:
+  root_dir:      $ROOT_DIR
+  core_binary:   $CORE_BIN
+  python_bin:    $PYTHON_BIN
+  rule_engine:   $RULE_ENGINE
+  rule_config:   $RULE_CONFIG
+  sample_dir:    $SAMPLE_DIR
+EOF
+}
+
+resolve_file() {
+  local target_file="$1"
+  shift || true
+
+  local write_mode=1
+  local explain_mode=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-write)
+        write_mode=0
+        ;;
+      --write)
+        write_mode=1
+        ;;
+      --explain)
+        explain_mode=1
+        ;;
+      *)
+        die "unknown resolve option: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [[ -f "$target_file" ]] || die "file not found: $target_file"
+  require_file "$CORE_BIN" "core binary"
+  require_file "$RULE_ENGINE" "rule engine"
+  require_command "$PYTHON_BIN"
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+  local analysis_json="$tmp_dir/analysis.json"
+  local rules_json="$tmp_dir/rules.json"
+  local resolved_txt="$tmp_dir/resolved.txt"
+
+  "$CORE_BIN" analyze --conflict-file "$target_file" --out "$analysis_json" --file "$(basename "$target_file")"
+  "$PYTHON_BIN" "$RULE_ENGINE" --analysis "$analysis_json" --out "$rules_json" --conflict-file "$target_file" --resolved-out "$resolved_txt"
+
+  if [[ $write_mode -eq 1 ]]; then
+    cp "$resolved_txt" "$target_file"
+  fi
+
+  if [[ $explain_mode -eq 1 ]]; then
+    cat "$rules_json"
+  fi
+
+  if grep -q '^<<<<<<<' "$resolved_txt"; then
+    info "partial resolution completed for $target_file; manual action required."
+    rm -rf "$tmp_dir"
+    return 2
+  fi
+
+  info "resolution completed for $target_file."
+  rm -rf "$tmp_dir"
+  return 0
+}
+
+find_conflict_files() {
+  local scan_path="$1"
+
+  if command -v rg >/dev/null 2>&1; then
+    rg -l --no-heading --fixed-strings "<<<<<<<" "$scan_path" --glob '!**/.git/**' || true
+    return
+  fi
+
+  grep -RIl --exclude-dir .git '^<<<<<<<' "$scan_path" || true
+}
+
+resolve_all() {
+  local target_path="$1"
+  shift || true
+
+  local write_flag="--no-write"
+  local explain_flag=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --write)
+        write_flag="--write"
+        ;;
+      --no-write)
+        write_flag="--no-write"
+        ;;
+      --explain)
+        explain_flag="--explain"
+        ;;
+      *)
+        die "unknown resolve-all option: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [[ -e "$target_path" ]] || die "path not found: $target_path"
+
+  mapfile -t conflict_files < <(find_conflict_files "$target_path")
+  if [[ ${#conflict_files[@]} -eq 0 ]]; then
+    info "no conflict markers found under: $target_path"
+    return 0
+  fi
+
+  local resolved_count=0
+  local partial_count=0
+
+  for file in "${conflict_files[@]}"; do
+    [[ -z "$file" ]] && continue
+    local -a extra_args=("$write_flag")
+    if [[ -n "$explain_flag" ]]; then
+      extra_args+=("$explain_flag")
+    fi
+    if resolve_file "$file" "${extra_args[@]}"; then
+      resolved_count=$((resolved_count + 1))
+    else
+      rc=$?
+      if [[ $rc -eq 2 ]]; then
+        partial_count=$((partial_count + 1))
+      else
+        return $rc
+      fi
+    fi
+  done
+
+  info "resolve-all summary: resolved=$resolved_count partial=$partial_count total=${#conflict_files[@]}"
+  if [[ $partial_count -gt 0 ]]; then
+    return 2
+  fi
+
+  return 0
+}
+
+scan_conflicts() {
+  local scan_path="${1:-.}"
+  [[ -e "$scan_path" ]] || die "path not found: $scan_path"
+
+  mapfile -t conflict_files < <(find_conflict_files "$scan_path")
+  if [[ ${#conflict_files[@]} -eq 0 ]]; then
+    info "no conflict markers found under: $scan_path"
+    return 0
+  fi
+
+  printf "Conflict files (%s):\n" "${#conflict_files[@]}"
+  for file in "${conflict_files[@]}"; do
+    [[ -n "$file" ]] && printf "  %s\n" "$file"
+  done
+}
+
+git_setup() {
+  require_command git
+  "$SCRIPT_DIR/install-mergetool.sh"
+}
+
+git_resolve() {
+  require_command git
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not inside a git repository"
+
+  local write_flag="--no-write"
+  local explain_flag=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --write)
+        write_flag="--write"
+        ;;
+      --no-write)
+        write_flag="--no-write"
+        ;;
+      --explain)
+        explain_flag="--explain"
+        ;;
+      *)
+        die "unknown git-resolve option: $1"
+        ;;
+    esac
+    shift
+  done
+
+  mapfile -t unmerged_files < <(git diff --name-only --diff-filter=U)
+  if [[ ${#unmerged_files[@]} -eq 0 ]]; then
+    info "no unmerged files found in git index."
+    return 0
+  fi
+
+  local resolved_count=0
+  local partial_count=0
+  local missing_count=0
+  local rc=0
+
+  for file in "${unmerged_files[@]}"; do
+    [[ -z "$file" ]] && continue
+    if [[ ! -f "$file" ]]; then
+      warn "skipping missing path from git index: $file"
+      missing_count=$((missing_count + 1))
+      continue
+    fi
+
+    local -a extra_args=("$write_flag")
+    if [[ -n "$explain_flag" ]]; then
+      extra_args+=("$explain_flag")
+    fi
+
+    if resolve_file "$file" "${extra_args[@]}"; then
+      resolved_count=$((resolved_count + 1))
+    else
+      rc=$?
+      if [[ $rc -eq 2 ]]; then
+        partial_count=$((partial_count + 1))
+      else
+        return $rc
+      fi
+    fi
+  done
+
+  info "git-resolve summary: resolved=$resolved_count partial=$partial_count missing=$missing_count total=${#unmerged_files[@]}"
+  if [[ $partial_count -gt 0 ]]; then
+    return 2
+  fi
+  return 0
+}
+
+run_doctor() {
+  local failures=0
+
+  printf "ConflictCraft doctor report\n"
+  printf "-------------------------\n"
+
+  if command -v git >/dev/null 2>&1; then
+    printf "[ok] git found: %s\n" "$(git --version)"
+  else
+    printf "[fail] git not found in PATH\n"
+    failures=$((failures + 1))
+  fi
+
+  if [[ -f "$CORE_BIN" ]]; then
+    printf "[ok] core binary found: %s\n" "$CORE_BIN"
+  else
+    printf "[fail] core binary missing: %s\n" "$CORE_BIN"
+    failures=$((failures + 1))
+  fi
+
+  if command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+    printf "[ok] python found: %s\n" "$PYTHON_BIN"
+  else
+    printf "[fail] python command missing: %s\n" "$PYTHON_BIN"
+    failures=$((failures + 1))
+  fi
+
+  if [[ -f "$RULE_ENGINE" ]]; then
+    printf "[ok] rule engine found: %s\n" "$RULE_ENGINE"
+  else
+    printf "[fail] rule engine missing: %s\n" "$RULE_ENGINE"
+    failures=$((failures + 1))
+  fi
+
+  if [[ -f "$RULE_CONFIG" ]]; then
+    printf "[ok] rule config found: %s\n" "$RULE_CONFIG"
+  else
+    printf "[fail] rule config missing: %s\n" "$RULE_CONFIG"
+    failures=$((failures + 1))
+  fi
+
+  if [[ -d "$SAMPLE_DIR" ]]; then
+    sample_count=$(find "$SAMPLE_DIR" -maxdepth 1 -type f | wc -l | tr -d ' ')
+    printf "[ok] sample directory found (%s files): %s\n" "$sample_count" "$SAMPLE_DIR"
+  else
+    printf "[fail] sample directory missing: %s\n" "$SAMPLE_DIR"
+    failures=$((failures + 1))
+  fi
+
+  if [[ $failures -gt 0 ]]; then
+    printf "Doctor result: %s issue(s) found.\n" "$failures"
+    return 1
+  fi
+
+  printf "Doctor result: all checks passed.\n"
+  return 0
+}
+
+list_rules() {
+  cat <<EOF
+Deterministic rules in this build:
+  - whitespace_ignore
+  - import_block_merge
+  - json_key_merge
+  - function_signature_conflict
+EOF
+}
+
+list_samples() {
+  cat <<EOF
+Built-in sample files:
+  import      -> testdata/small/${SAMPLE_MAP[import]}
+  whitespace  -> testdata/small/${SAMPLE_MAP[whitespace]}
+  json        -> testdata/small/${SAMPLE_MAP[json]}
+  signature   -> testdata/small/${SAMPLE_MAP[signature]}
+EOF
+}
+
+run_sample() {
+  local sample_name="$1"
+  shift || true
+
+  local sample_file="${SAMPLE_MAP[$sample_name]-}"
+  [[ -n "$sample_file" ]] || die "unknown sample: $sample_name"
+
+  local full_path="$SAMPLE_DIR/$sample_file"
+  [[ -f "$full_path" ]] || die "sample file missing: $full_path"
+
+  resolve_file "$full_path" "$@"
 }
 
 if [[ $# -lt 1 ]]; then
@@ -29,65 +409,92 @@ cmd="$1"
 shift
 
 case "$cmd" in
+  help|-h|--help)
+    usage
+    ;;
+
+  version)
+    printf "ConflictCraft CLI v%s\n" "$CLI_VERSION"
+    ;;
+
+  config)
+    show_config
+    ;;
+
+  doctor)
+    run_doctor
+    ;;
+
+  rules)
+    list_rules
+    ;;
+
+  scan)
+    scan_path="${1:-.}"
+    scan_conflicts "$scan_path"
+    ;;
+
+  git-setup)
+    git_setup "$@"
+    ;;
+
+  git-resolve)
+    git_resolve "$@"
+    ;;
+
+  samples)
+    subcmd="${1:-list}"
+    if [[ $# -gt 0 ]]; then shift; fi
+    case "$subcmd" in
+      list)
+        list_samples
+        ;;
+      run)
+        [[ $# -ge 1 ]] || die "samples run requires a sample name"
+        sample_name="$1"
+        shift
+        run_sample "$sample_name" "$@"
+        ;;
+      *)
+        die "unknown samples subcommand: $subcmd"
+        ;;
+    esac
+    ;;
+
   analyze)
+    require_file "$CORE_BIN" "core binary"
     "$CORE_BIN" analyze "$@"
     ;;
-  resolve)
-    if [[ $# -lt 1 ]]; then
-      echo "resolve requires <file>"
-      exit 1
-    fi
 
+  resolve)
+    [[ $# -ge 1 ]] || die "resolve requires <file>"
     target_file="$1"
     shift
-
-    write_mode=1
-    explain_mode=0
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --no-write)
-          write_mode=0
-          ;;
-        --write)
-          write_mode=1
-          ;;
-        --explain)
-          explain_mode=1
-          ;;
-      esac
-      shift
-    done
-
-    tmp_dir="$(mktemp -d)"
-    analysis_json="$tmp_dir/analysis.json"
-    rules_json="$tmp_dir/rules.json"
-    resolved_txt="$tmp_dir/resolved.txt"
-
-    "$CORE_BIN" analyze --conflict-file "$target_file" --out "$analysis_json" --file "$(basename "$target_file")"
-
-    "$PYTHON_BIN" "$RULE_ENGINE" \
-      --analysis "$analysis_json" \
-      --out "$rules_json" \
-      --conflict-file "$target_file" \
-      --resolved-out "$resolved_txt"
-
-    if [[ $write_mode -eq 1 ]]; then
-      cp "$resolved_txt" "$target_file"
-    fi
-
-    if [[ $explain_mode -eq 1 ]]; then
-      cat "$rules_json"
-    fi
-
-    if grep -q '^<<<<<<<' "$resolved_txt"; then
-      echo "ConflictCraft: partial resolution completed; manual action required."
-      exit 2
-    fi
-
-    echo "ConflictCraft: resolution completed."
+    resolve_file "$target_file" "$@"
     ;;
+
+  explain)
+    [[ $# -ge 1 ]] || die "explain requires <file>"
+    target_file="$1"
+    shift
+    resolve_file "$target_file" --no-write --explain "$@"
+    ;;
+
+  resolve-all)
+    scan_path="${1:-.}"
+    if [[ $# -gt 0 ]]; then shift; fi
+    resolve_all "$scan_path" "$@"
+    ;;
+
+  install)
+    "$SCRIPT_DIR/install-device.sh" "$@"
+    ;;
+
+  uninstall)
+    "$SCRIPT_DIR/uninstall-device.sh" "$@"
+    ;;
+
   *)
-    usage
-    exit 1
+    die "unknown command: $cmd"
     ;;
 esac

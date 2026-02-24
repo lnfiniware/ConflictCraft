@@ -41,6 +41,10 @@ In the Extension Development Host:
 - `ConflictCraft: Toggle Explain Mode`
 - `ConflictCraft: Undo Action`
 - `ConflictCraft: Redo Action`
+- `ConflictCraft: Run Doctor`
+- `ConflictCraft: Scan Workspace Conflicts`
+- `ConflictCraft: Resolve Git Unmerged Files`
+- `ConflictCraft: Open Full Tutorial`
 
 ## Settings
 

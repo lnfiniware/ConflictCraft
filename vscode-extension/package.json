@@ -2,7 +2,7 @@
   "name": "conflictcraft-vscode",
   "displayName": "ConflictCraft",
   "description": "Visual and explainable Git conflict resolution",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "infiniware",
   "icon": "assets/conflictcraft-logo.png",
   "keywords": [
@@ -22,6 +22,10 @@
   "activationEvents": [
     "onCommand:conflictcraft.openEditor",
     "onCommand:conflictcraft.resolveCurrentFile",
+    "onCommand:conflictcraft.runDoctor",
+    "onCommand:conflictcraft.scanWorkspaceConflicts",
+    "onCommand:conflictcraft.resolveGitUnmerged",
+    "onCommand:conflictcraft.openFullTutorial",
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
@@ -46,6 +50,22 @@
       {
         "command": "conflictcraft.redoAction",
         "title": "ConflictCraft: Redo Action"
+      },
+      {
+        "command": "conflictcraft.runDoctor",
+        "title": "ConflictCraft: Run Doctor"
+      },
+      {
+        "command": "conflictcraft.scanWorkspaceConflicts",
+        "title": "ConflictCraft: Scan Workspace Conflicts"
+      },
+      {
+        "command": "conflictcraft.resolveGitUnmerged",
+        "title": "ConflictCraft: Resolve Git Unmerged Files"
+      },
+      {
+        "command": "conflictcraft.openFullTutorial",
+        "title": "ConflictCraft: Open Full Tutorial"
       }
     ],
     "configuration": {
